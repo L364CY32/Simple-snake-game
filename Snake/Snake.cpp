@@ -29,9 +29,9 @@ struct GameSettings {
 struct GameState {
     bool gameOver;
     int score;
-    int nTail;
     Direction dir;
     Object snake;
+    vector<Object> tail; // Represent the snake's tail
     vector<Object> obstacles;
     vector<Object> fruits;
 };
@@ -39,10 +39,10 @@ struct GameState {
 void Setup(GameState& state, GameSettings& settings) {
     state.gameOver = false;
     state.score = 0;
-    state.nTail = 0;
     state.dir = Direction::STOP;
     state.snake.x = settings.width / 2;
     state.snake.y = settings.height / 2;
+    state.tail.clear(); // Clear the snake's tail
 
     srand(time(NULL));
 
@@ -75,23 +75,34 @@ void Draw(GameState& state, GameSettings& settings) {
                 print = true;
             }
             else {
-                for (auto& tail : state.obstacles) {
+                bool isTailSegment = false;
+                for (auto& tail : state.tail) {
                     if (j == tail.x && i == tail.y) {
-                        cout << "X";
+                        cout << "o"; // Tail segment
                         print = true;
+                        isTailSegment = true;
                         break;
                     }
                 }
-                if (!print) {
-                    for (auto& fruit : state.fruits) {
-                        if (j == fruit.x && i == fruit.y) {
-                            cout << "F";
+                if (!isTailSegment) {
+                    for (auto& obstacle : state.obstacles) {
+                        if (j == obstacle.x && i == obstacle.y) {
+                            cout << "X";
                             print = true;
                             break;
                         }
                     }
-                    if (!print)
-                        cout << " ";
+                    if (!print) {
+                        for (auto& fruit : state.fruits) {
+                            if (j == fruit.x && i == fruit.y) {
+                                cout << "F";
+                                print = true;
+                                break;
+                            }
+                        }
+                        if (!print)
+                            cout << " ";
+                    }
                 }
             }
 
@@ -132,7 +143,23 @@ void Input(GameState& state) {
 void Logic(GameState& state, GameSettings& settings) {
     int prevX = state.snake.x;
     int prevY = state.snake.y;
-    int prev2X, prev2Y;
+
+    // Move the tail
+    if (!state.tail.empty()) {
+        int prev2X = state.snake.x;
+        int prev2Y = state.snake.y;
+        int tempX, tempY;
+        for (size_t i = 0; i < state.tail.size() - 1; i++) {
+            tempX = state.tail[i].x;
+            tempY = state.tail[i].y;
+            state.tail[i].x = prev2X;
+            state.tail[i].y = prev2Y;
+            prev2X = tempX;
+            prev2Y = tempY;
+        }
+        state.tail.back().x = prevX;
+        state.tail.back().y = prevY;
+    }
 
     switch (state.dir) {
     case Direction::LEFT:
@@ -161,7 +188,7 @@ void Logic(GameState& state, GameSettings& settings) {
         if (state.snake.x == obstacle.x && state.snake.y == obstacle.y) {
             state.gameOver = true;
             cout << "Collision with obstacle!" << endl;
-            break;
+            return;
         }
     }
 
@@ -171,7 +198,7 @@ void Logic(GameState& state, GameSettings& settings) {
             state.score += 10;
             fruit.x = rand() % settings.width;
             fruit.y = rand() % settings.height;
-            state.nTail++;
+            state.tail.push_back({ prevX, prevY }); // Add segment to the tail
             settings.speed -= 5;
             cout << "Fruit collected!" << endl;
             break;
